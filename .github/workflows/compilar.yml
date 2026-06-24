@@ -10,16 +10,19 @@ jobs:
       - name: Descargar el código
         uses: actions/checkout@v4
 
-      - name: Configurar Java
+      - name: Configurar Java 17
         uses: actions/setup-java@v4
         with:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Fabricar gradlew automáticamente
+      - name: Configurar Gradle Moderno
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5' # Una versión moderna que entiende Java 17 perfectamente
+
+      - name: Fabricar el ejecutable wrapper
         run: |
-          # Como no está el archivo, instalamos Gradle en el robot y lo generamos
-          sudo apt-get update && sudo apt-get install -y gradle
           gradle wrapper
           chmod +x gradlew
 
