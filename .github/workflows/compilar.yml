@@ -19,18 +19,31 @@ jobs:
       - name: Configurar Gradle Moderno
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5' # Una versión moderna que entiende Java 17 perfectamente
+          gradle-version: '8.5'
 
-      - name: Fabricar el ejecutable wrapper
+      - name: Buscar Proyecto y Compilar APK
         run: |
-          gradle wrapper
-          chmod +x gradlew
-
-      - name: Compilar Aplicación (APK)
-        run: ./gradlew assembleDebug
+          # Buscamos dónde está el archivo de configuración build.gradle o build.gradle.kts
+          CONFIG_PATH=$(find . -name "build.gradle*" | head -n 1)
+          if [ -z "$CONFIG_PATH" ]; then
+            echo "¡ERROR: No se encontró ningún archivo build.gradle!"
+            exit 1
+          fi
+          
+          # Nos metemos adentro de esa carpeta donde están tus archivos reales
+          DIR=$(dirname "$CONFIG_PATH")
+          echo "Proyecto encontrado en la carpeta: $DIR"
+          cd "$DIR"
+          
+          # Compilamos directamente con Gradle sin usar el archivo gradlew
+          gradle assembleDebug
+          
+          # Guardamos el APK en un lugar seguro para que GitHub lo pueda descargar
+          mkdir -p $GITHUB_WORKSPACE/output
+          find . -name "app-debug.apk" -exec cp {} $GITHUB_WORKSPACE/output/ \;
 
       - name: Subir el APK Generado
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: "**/build/outputs/apk/debug/app-debug.apk"
+          path: output/app-debug.apk
