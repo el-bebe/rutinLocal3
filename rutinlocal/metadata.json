@@ -1,0 +1,6 @@
+{
+  "name": "RutinLocal",
+  "description": "Plataforma gamificada de lealtad comercial local con tres roles: Vecino, Comercio e Intendente.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

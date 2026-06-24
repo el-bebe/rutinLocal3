@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "6018175355",
+    "project_id": "rutin-local",
+    "storage_bucket": "rutin-local.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:6018175355:android:5265e57cfc79cb71f26dde",
+        "android_client_info": {
+          "package_name": "com.aistudio.rutinlocal.vckzpn"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCJh7tOyKh34I4lYk0QfBfqLtCR4_HcgH4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
