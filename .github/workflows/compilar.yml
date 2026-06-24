@@ -16,29 +16,18 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Búsqueda extrema de gradlew
+      - name: Fabricar gradlew automáticamente
         run: |
-          echo "Buscando gradlew..."
-          find . -name "gradlew"
-          GRADLEW_PATH=$(find . -name gradlew | head -n 1)
-          
-          if [ -z "$GRADLEW_PATH" ]; then
-            echo "¡ERROR: No se encontró gradlew en ninguna parte!"
-            exit 1
-          fi
-          
-          echo "Encontrado en: $GRADLEW_PATH"
-          DIR=$(dirname "$GRADLEW_PATH")
-          cd "$DIR"
+          # Como no está el archivo, instalamos Gradle en el robot y lo generamos
+          sudo apt-get update && sudo apt-get install -y gradle
+          gradle wrapper
           chmod +x gradlew
-          ./gradlew assembleDebug
-          
-          # Copiar el archivo encontrado a un lugar donde el último paso lo vea
-          mkdir -p $GITHUB_WORKSPACE/output
-          find . -name "app-debug.apk" -exec cp {} $GITHUB_WORKSPACE/output/ \;
+
+      - name: Compilar Aplicación (APK)
+        run: ./gradlew assembleDebug
 
       - name: Subir el APK Generado
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: output/app-debug.apk
+          path: "**/build/outputs/apk/debug/app-debug.apk"
