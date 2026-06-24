@@ -16,24 +16,29 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Buscar y dar permisos a gradlew
+      - name: Búsqueda extrema de gradlew
         run: |
-          # Busca el archivo gradlew en cualquier carpeta
+          echo "Buscando gradlew..."
+          find . -name "gradlew"
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+          
           if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: No se encontró gradlew"
+            echo "¡ERROR: No se encontró gradlew en ninguna parte!"
             exit 1
           fi
-          cd $(dirname "$GRADLEW_PATH")
+          
+          echo "Encontrado en: $GRADLEW_PATH"
+          DIR=$(dirname "$GRADLEW_PATH")
+          cd "$DIR"
           chmod +x gradlew
           ./gradlew assembleDebug
           
-          # Mover el APK a la raíz para que el siguiente paso lo encuentre
-          mkdir -p $GITHUB_WORKSPACE/app/build/outputs/apk/debug/
-          cp app/build/outputs/apk/debug/app-debug.apk $GITHUB_WORKSPACE/app/build/outputs/apk/debug/ 2>/dev/null || true
+          # Copiar el archivo encontrado a un lugar donde el último paso lo vea
+          mkdir -p $GITHUB_WORKSPACE/output
+          find . -name "app-debug.apk" -exec cp {} $GITHUB_WORKSPACE/output/ \;
 
       - name: Subir el APK Generado
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: "**/build/outputs/apk/debug/app-debug.apk"
+          path: output/app-debug.apk
