@@ -35,10 +35,18 @@ jobs:
           echo "Proyecto encontrado en la carpeta: $DIR"
           cd "$DIR"
           
-          # Fabricamos de prepo los archivos .env para que no tire error
+          # Fabricamos de prepo los archivos .env
           touch .env.example
           touch .env
-          echo "Archivos .env configurados a la fuerza."
+          
+          # Fabricamos el archivo de firma debug.keystore que está pidiendo
+          mkdir -p ~/.android
+          keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          
+          # Copiamos la firma generada al lugar exacto donde la app la busca
+          cp debug.keystore ~/.android/debug.keystore
+          
+          echo "Firma debug.keystore configurada con éxito."
           
           # Compilamos directamente con Gradle
           gradle assembleDebug
