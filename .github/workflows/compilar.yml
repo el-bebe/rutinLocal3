@@ -23,7 +23,7 @@ jobs:
 
       - name: Buscar Proyecto y Compilar APK
         run: |
-          # Buscamos dónde está el archivo de configuración build.gradle o build.gradle.kts
+          # Buscamos dónde está el archivo de configuración
           CONFIG_PATH=$(find . -name "build.gradle*" | head -n 1)
           if [ -z "$CONFIG_PATH" ]; then
             echo "¡ERROR: No se encontró ningún archivo build.gradle!"
@@ -35,11 +35,10 @@ jobs:
           echo "Proyecto encontrado en la carpeta: $DIR"
           cd "$DIR"
           
-          # Truco para el error del .env: si existe el ejemplo, hacemos una copia
-          if [ -f ".env.example" ]; then
-            cp .env.example .env
-            echo "Archivo .env creado desde el ejemplo con éxito."
-          fi
+          # Fabricamos de prepo los archivos .env para que no tire error
+          touch .env.example
+          touch .env
+          echo "Archivos .env configurados a la fuerza."
           
           # Compilamos directamente con Gradle
           gradle assembleDebug
