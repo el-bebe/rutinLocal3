@@ -16,10 +16,10 @@ jobs:
           distribution: 'zulu'
           java-version: '17'
 
-      - name: Configurar Gradle Moderno
+      - name: Configurar Gradle Requerido
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
+          gradle-version: '9.3.1' # La versión exacta que pide tu proyecto
 
       - name: Buscar Proyecto y Compilar APK
         run: |
@@ -35,7 +35,7 @@ jobs:
           echo "Proyecto encontrado en la carpeta: $DIR"
           cd "$DIR"
           
-          # Compilamos directamente con Gradle sin usar el archivo gradlew
+          # Compilamos directamente con Gradle
           gradle assembleDebug
           
           # Guardamos el APK en un lugar seguro para que GitHub lo pueda descargar
