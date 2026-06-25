@@ -19,7 +19,7 @@ jobs:
       - name: Configurar Gradle Requerido
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '9.3.1' # La versión exacta que pide tu proyecto
+          gradle-version: '9.3.1'
 
       - name: Buscar Proyecto y Compilar APK
         run: |
@@ -30,15 +30,21 @@ jobs:
             exit 1
           fi
           
-          # Nos metemos adentro de esa carpeta donde están tus archivos reales
+          # Nos metemos adentro de esa carpeta
           DIR=$(dirname "$CONFIG_PATH")
           echo "Proyecto encontrado en la carpeta: $DIR"
           cd "$DIR"
           
+          # Truco para el error del .env: si existe el ejemplo, hacemos una copia
+          if [ -f ".env.example" ]; then
+            cp .env.example .env
+            echo "Archivo .env creado desde el ejemplo con éxito."
+          fi
+          
           # Compilamos directamente con Gradle
           gradle assembleDebug
           
-          # Guardamos el APK en un lugar seguro para que GitHub lo pueda descargar
+          # Guardamos el APK en un lugar seguro
           mkdir -p $GITHUB_WORKSPACE/output
           find . -name "app-debug.apk" -exec cp {} $GITHUB_WORKSPACE/output/ \;
 
@@ -47,3 +53,4 @@ jobs:
         with:
           name: app-debug
           path: output/app-debug.apk
+          
