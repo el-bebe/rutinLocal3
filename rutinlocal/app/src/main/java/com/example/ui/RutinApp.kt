@@ -90,6 +90,24 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
         }
     }
 
+    // Reset selection option when user login state / role changes, and enforce Firebase Auth session validation
+    LaunchedEffect(currentUser) {
+        val user = currentUser
+        if (user != null) {
+            val firebaseUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+            if (firebaseUser == null) {
+                // No real Firebase Auth session found, force logout and redirect to WelcomeScreen
+                viewModel.logout()
+            } else {
+                selectedDrawerOption = when (user.role) {
+                    AppRole.VECINO -> "caminito"
+                    AppRole.COMERCIO -> "comercio_dashboard"
+                    AppRole.ADMIN -> "admin_dashboard"
+                }
+            }
+        }
+    }
+
     // Welcomer Gate
     if (currentUser == null) {
         WelcomeScreen(
@@ -107,19 +125,17 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
                 topBar = {
                     TopAppBar(
                         navigationIcon = {
-                            if (activeUser.role == AppRole.VECINO) {
-                                IconButton(
-                                    onClick = {
-                                        scope.launch { drawerState.open() }
-                                    },
-                                    modifier = Modifier.testTag("hamburger_menu_btn")
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Menu,
-                                        contentDescription = "Abrir Menú",
-                                        tint = CandyPink
-                                    )
-                                }
+                            IconButton(
+                                onClick = {
+                                    scope.launch { drawerState.open() }
+                                },
+                                modifier = Modifier.testTag("hamburger_menu_btn")
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Menu,
+                                    contentDescription = "Abrir Menú",
+                                    tint = CandyPink
+                                )
                             }
                         },
                         title = {
@@ -153,19 +169,15 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
                                         letterSpacing = 0.5.sp
                                     )
                                     Text(
-                                        text = when (activeUser.role) {
-                                            AppRole.VECINO -> {
-                                                when (selectedDrawerOption) {
-                                                    "caminito" -> "Caminito de Premios 🗺️"
-                                                    "scan" -> "Escáner QR Certificador 📸"
-                                                    "perfil" -> "Tu Perfil de Vecino 👤"
-                                                    "cupones" -> "Historial de Cupones 🎟️"
-                                                    "config" -> "Configuración ⚙️"
-                                                    else -> "Vecino Comunal"
-                                                }
-                                            }
-                                            AppRole.COMERCIO -> "Panel del Comercio Partner 🏪"
-                                            AppRole.ADMIN -> "Consola del Intendente 🏆"
+                                        text = when (selectedDrawerOption) {
+                                            "caminito" -> "Caminito de Premios 🗺️"
+                                            "scan" -> "Escáner QR Certificador 📸"
+                                            "perfil" -> "Tu Perfil de Vecino 👤"
+                                            "cupones" -> "Historial de Cupones 🎟️"
+                                            "config" -> "Configuración ⚙️"
+                                            "comercio_dashboard" -> "Panel de Comercio 🏪"
+                                            "admin_dashboard" -> "Consola de Control 🏆"
+                                            else -> "Panel de Control"
                                         },
                                         fontSize = 11.sp,
                                         color = CandyTextMuted,
@@ -388,30 +400,44 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
                             }
                             
                             AppRole.COMERCIO -> {
-                                val matchingMerchant = merchants.find { it.name.contains("Marita") || it.name.contains("Café") }
-                                val merchantId = matchingMerchant?.id ?: 1
-                                ComercioDashboard(
-                                    merchantId = merchantId,
-                                    merchantName = matchingMerchant?.name ?: activeUser.name,
-                                    merchants = merchants,
-                                    campaigns = campaigns,
-                                    transactions = transactions,
-                                    users = users,
-                                    onAddCampaign = { showAddCampaignDialog = true },
-                                    viewModel = viewModel
-                                )
+                                if (selectedDrawerOption == "config") {
+                                    VecinoConfigScreen(
+                                        user = activeUser,
+                                        viewModel = viewModel
+                                    )
+                                } else {
+                                    val matchingMerchant = merchants.find { it.name.contains("Marita") || it.name.contains("Café") }
+                                    val merchantId = matchingMerchant?.id ?: 1
+                                    ComercioDashboard(
+                                        merchantId = merchantId,
+                                        merchantName = matchingMerchant?.name ?: activeUser.name,
+                                        merchants = merchants,
+                                        campaigns = campaigns,
+                                        transactions = transactions,
+                                        users = users,
+                                        onAddCampaign = { showAddCampaignDialog = true },
+                                        viewModel = viewModel
+                                    )
+                                }
                             }
                             
                             AppRole.ADMIN -> {
-                                SuperadminDashboard(
-                                    merchants = merchants,
-                                    users = users,
-                                    transactions = transactions,
-                                    routes = routes,
-                                    onAddMerchant = { showAddMerchantDialog = true },
-                                    onAddRoute = { showAddRouteDialog = true },
-                                    viewModel = viewModel
-                                )
+                                if (selectedDrawerOption == "config") {
+                                    VecinoConfigScreen(
+                                        user = activeUser,
+                                        viewModel = viewModel
+                                    )
+                                } else {
+                                    SuperadminDashboard(
+                                        merchants = merchants,
+                                        users = users,
+                                        transactions = transactions,
+                                        routes = routes,
+                                        onAddMerchant = { showAddMerchantDialog = true },
+                                        onAddRoute = { showAddRouteDialog = true },
+                                        viewModel = viewModel
+                                    )
+                                }
                             }
                         }
                     }
@@ -419,160 +445,173 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
             }
         }
 
-        if (activeUser.role == AppRole.VECINO) {
-            ModalNavigationDrawer(
-                drawerState = drawerState,
-                drawerContent = {
-                    ModalDrawerSheet(
-                        drawerContainerColor = Color(0xFFFAF9F6),
-                        modifier = Modifier.width(300.dp)
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = {
+                ModalDrawerSheet(
+                    drawerContainerColor = Color(0xFFFAF9F6),
+                    modifier = Modifier.width(300.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(16.dp),
-                            verticalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clip(RoundedCornerShape(20.dp))
-                                        .background(Brush.horizontalGradient(listOf(CandyPink, CandyOrange)))
-                                        .padding(16.dp)
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Brush.horizontalGradient(listOf(CandyPink, CandyOrange)))
+                                    .padding(16.dp)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
                                 ) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(54.dp)
-                                                .background(Color.White, CircleShape),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                text = activeUser.avatar,
-                                                fontSize = 28.sp
-                                            )
-                                        }
-                                        Column {
-                                            Text(
-                                                text = activeUser.name,
-                                                color = Color.White,
-                                                fontWeight = FontWeight.Black,
-                                                fontSize = 15.sp
-                                            )
-                                            Text(
-                                                text = activeUser.email,
-                                                color = Color.White.copy(alpha = 0.85f),
-                                                fontSize = 11.sp
-                                            )
-                                            Text(
-                                                text = "📍 " + activeUser.city,
-                                                color = Color.White,
-                                                fontSize = 10.sp,
-                                                fontWeight = FontWeight.Bold
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Spacer(modifier = Modifier.height(10.dp))
-
-                                listOf(
-                                    Triple("caminito", "🗺️ Caminito de Premios", "Tu mapa de progreso"),
-                                    Triple("scan", "📸 Escanear Visita QR", "Registra tus sellos comunales"),
-                                    Triple("perfil", "👤 Mi Perfil / Avatar", "Ver perfil y detalles"),
-                                    Triple("cupones", "🎟️ Historial de Cupones", "Tus sellos y canjes"),
-                                    Triple("config", "⚙️ Configuración", "Opciones del sistema")
-                                ).forEach { (id, label, desc) ->
-                                    val active = selectedDrawerOption == id
-                                    Row(
+                                    Box(
                                         modifier = Modifier
-                                            .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(
-                                                if (active) CandyPink.copy(alpha = 0.12f) else Color.Transparent
-                                            )
-                                            .border(
-                                                width = if (active) 1.5.dp else 0.dp,
-                                                color = if (active) CandyPink else Color.Transparent,
-                                                shape = RoundedCornerShape(16.dp)
-                                            )
-                                            .clickable {
-                                                selectedDrawerOption = id
-                                                scope.launch { drawerState.close() }
-                                            }
-                                            .padding(horizontal = 14.dp, vertical = 10.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                                        verticalAlignment = Alignment.CenterVertically
+                                            .size(54.dp)
+                                            .background(Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
                                     ) {
-                                        Column(modifier = Modifier.weight(1f)) {
-                                            Text(
-                                                text = label,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Black,
-                                                color = if (active) CandyPink else CandyTextDark
-                                            )
-                                            Text(
-                                                text = desc,
-                                                fontSize = 10.sp,
-                                                color = CandyTextMuted
-                                            )
-                                        }
-                                        Icon(
-                                            imageVector = Icons.Default.KeyboardArrowRight,
-                                            contentDescription = null,
-                                            tint = if (active) CandyPink else Color.LightGray,
-                                            modifier = Modifier.size(16.dp)
+                                        Text(
+                                            text = activeUser.avatar,
+                                            fontSize = 28.sp
+                                        )
+                                    }
+                                    Column {
+                                        Text(
+                                            text = activeUser.name,
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Black,
+                                            fontSize = 15.sp
+                                        )
+                                        Text(
+                                            text = activeUser.email,
+                                            color = Color.White.copy(alpha = 0.85f),
+                                            fontSize = 11.sp
+                                        )
+                                        Text(
+                                            text = "📍 " + activeUser.city,
+                                            color = Color.White,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold
                                         )
                                     }
                                 }
                             }
 
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            val drawerItems = when (activeUser.role) {
+                                AppRole.VECINO -> listOf(
+                                    Triple("caminito", "🗺️ Caminito de Premios", "Tu mapa de progreso"),
+                                    Triple("scan", "📸 Escanear Visita QR", "Registra tus sellos comunales"),
+                                    Triple("perfil", "👤 Mi Perfil / Avatar", "Ver perfil y detalles"),
+                                    Triple("cupones", "🎟️ Historial de Cupones", "Tus sellos y canjes"),
+                                    Triple("config", "⚙️ Configuración", "Opciones del sistema")
+                                )
+                                AppRole.COMERCIO -> listOf(
+                                    Triple("comercio_dashboard", "🏪 Panel del Comercio", "Control de ventas y canjes"),
+                                    Triple("config", "⚙️ Configuración", "Opciones del sistema")
+                                )
+                                AppRole.ADMIN -> listOf(
+                                    Triple("admin_dashboard", "🏆 Consola de Control", "Panel general del Intendente"),
+                                    Triple("config", "⚙️ Configuración", "Opciones del sistema")
+                                )
+                            }
+
+                            drawerItems.forEach { (id, label, desc) ->
+                                val active = selectedDrawerOption == id
+                                val itemColor = when (activeUser.role) {
+                                    AppRole.VECINO -> CandyPink
+                                    AppRole.COMERCIO -> CandyOrange
+                                    AppRole.ADMIN -> CandyPurple
+                                }
                                 Row(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(16.dp))
-                                        .background(CandyOrange.copy(alpha = 0.1f))
-                                        .border(1.dp, CandyOrange, RoundedCornerShape(16.dp))
+                                        .background(
+                                            if (active) itemColor.copy(alpha = 0.12f) else Color.Transparent
+                                        )
+                                        .border(
+                                            width = if (active) 1.5.dp else 0.dp,
+                                            color = if (active) itemColor else Color.Transparent,
+                                            shape = RoundedCornerShape(16.dp)
+                                        )
                                         .clickable {
+                                            selectedDrawerOption = id
                                             scope.launch { drawerState.close() }
-                                            viewModel.logout()
                                         }
-                                        .padding(vertical = 12.dp, horizontal = 16.dp),
-                                    horizontalArrangement = Arrangement.Center,
+                                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = label,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Black,
+                                            color = if (active) itemColor else CandyTextDark
+                                        )
+                                        Text(
+                                            text = desc,
+                                            fontSize = 10.sp,
+                                            color = CandyTextMuted
+                                        )
+                                    }
                                     Icon(
-                                        imageVector = Icons.Default.ExitToApp,
-                                        contentDescription = "Salir",
-                                        tint = CandyOrange,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "SALIR DE LA CUENTA 🚪",
-                                        color = CandyOrange,
-                                        fontWeight = FontWeight.Black,
-                                        fontSize = 11.sp,
-                                        letterSpacing = 0.5.sp
+                                        imageVector = Icons.Default.KeyboardArrowRight,
+                                        contentDescription = null,
+                                        tint = if (active) itemColor else Color.LightGray,
+                                        modifier = Modifier.size(16.dp)
                                     )
                                 }
                             }
                         }
+
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(16.dp))
+                                    .background(CandyOrange.copy(alpha = 0.1f))
+                                    .border(1.dp, CandyOrange, RoundedCornerShape(16.dp))
+                                    .clickable {
+                                        scope.launch { drawerState.close() }
+                                        viewModel.logout()
+                                    }
+                                    .padding(vertical = 12.dp, horizontal = 16.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ExitToApp,
+                                    contentDescription = "Salir",
+                                    tint = CandyOrange,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "SALIR DE LA CUENTA 🚪",
+                                    color = CandyOrange,
+                                    fontWeight = FontWeight.Black,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            }
+                        }
                     }
                 }
-            ) {
-                appContent()
             }
-        } else {
+        ) {
             appContent()
         }
     }
@@ -922,7 +961,7 @@ fun CandyCard(
     Card(
         modifier = modifier,
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.88f)),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFDFBF7).copy(alpha = 0.94f)),
         border = BorderStroke(2.5.dp, borderColor)
     ) {
         Column(
@@ -933,9 +972,6 @@ fun CandyCard(
 }
 
 // -------------------------------------------------------------------------------------------------// --------------------------------------------------------------------------------------------------
-@Composable
-// ... (Código anterior de importaciones y estructura principal) ...
-
 @Composable
 fun WelcomeScreen(
     users: List<UserEntity>,
@@ -949,18 +985,18 @@ fun WelcomeScreen(
     var savedEmail by remember { mutableStateOf(sharedPrefs.getString("saved_email", "salvatorealejandro233@gmail.com") ?: "salvatorealejandro233@gmail.com") }
     var savedPassword by remember { mutableStateOf(sharedPrefs.getString("saved_password", "123456") ?: "123456") }
     var biometricEnabled by remember { mutableStateOf(sharedPrefs.getBoolean("biometric_enabled", true)) }
- 
+
     // Navigation sub-states: "login" or "register" or "merchant"
     var currentView by remember { mutableStateOf("login") } 
- 
+
     // Login inputs
     var loginEmail by remember { mutableStateOf(savedEmail) }
     var loginPassword by remember { mutableStateOf(savedPassword) }
- 
+
     // Merchant login inputs
     var merchantEmail by remember { mutableStateOf("") }
     var merchantPassword by remember { mutableStateOf("") }
- 
+
     // Manual registration fields
     var manualName by remember { mutableStateOf("") }
     var manualEmail by remember { mutableStateOf("") }
@@ -968,10 +1004,14 @@ fun WelcomeScreen(
     var manualCity by remember { mutableStateOf("") }
     var selectedAvatar by remember { mutableStateOf("🦊") }
     var selectedRole by remember { mutableStateOf(AppRole.VECINO) }
- 
+
+    // Biometric scanner dialogue
+    var showBiometricDialog by remember { mutableStateOf(false) }
+    var isBiometricScanning by remember { mutableStateOf(false) }
+
     // Visual Avatars
     val avatarsList = listOf("🦊", "🦁", "🐯", "🐼", "🐨", "🐸", "🐙", "🦄", "👤")
- 
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -990,7 +1030,7 @@ fun WelcomeScreen(
             drawCircle(CandyBlueAccent.copy(alpha = 0.2f), 10.dp.toPx(), Offset(size.width * 0.75f, size.height * 0.7f))
             drawCircle(CandyPurple.copy(alpha = 0.18f), 15.dp.toPx(), Offset(size.width * 0.2f, size.height * 0.85f))
         }
- 
+
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -1020,7 +1060,7 @@ fun WelcomeScreen(
                     )
                 }
             }
- 
+
             item {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -1039,7 +1079,7 @@ fun WelcomeScreen(
                     )
                 }
             }
- 
+
             item {
                 CandyCard(borderColor = CandyPink.copy(alpha = 0.15f)) {
                     when (currentView) {
@@ -1055,7 +1095,7 @@ fun WelcomeScreen(
                                     color = CandyTextDark,
                                     modifier = Modifier.align(Alignment.CenterHorizontally)
                                 )
- 
+
                                 Text(
                                     text = "Inicia sesión para certificar tus compras en el barrio y acumular estrellas.",
                                     fontSize = 11.sp,
@@ -1064,7 +1104,7 @@ fun WelcomeScreen(
                                     lineHeight = 15.sp,
                                     modifier = Modifier.padding(bottom = 6.dp)
                                 )
- 
+
                                 OutlinedTextField(
                                     value = loginEmail,
                                     onValueChange = { loginEmail = it },
@@ -1081,7 +1121,7 @@ fun WelcomeScreen(
                                         unfocusedLabelColor = CandyTextMuted
                                     )
                                 )
- 
+
                                 OutlinedTextField(
                                     value = loginPassword,
                                     onValueChange = { loginPassword = it },
@@ -1100,23 +1140,260 @@ fun WelcomeScreen(
                                         unfocusedLabelColor = CandyTextMuted
                                     )
                                 )
- 
-                                Spacer(modifier = Modifier.height(8.dp))
- 
-                                // Botón principal de Iniciar Sesión (Única opción destacada ahora)
+
+                                 Spacer(modifier = Modifier.height(8.dp))
+
+                                 // Visual 1: Large prominent button at the top of actions!
+                                 Button(
+                                     onClick = {
+                                         if (loginEmail.isBlank() || loginPassword.isBlank()) {
+                                             viewModel.toastMessage = "❌ Por favor completa tus credenciales."
+                                         } else {
+                                             // Save options
+                                             sharedPrefs.edit()
+                                                 .putString("saved_email", loginEmail)
+                                                 .putString("saved_password", loginPassword)
+                                                 .apply()
+                                             
+                                             // Login with Firebase Auth
+                                             viewModel.loginManualFirebase(
+                                                 email = loginEmail,
+                                                 password = loginPassword
+                                             )
+                                         }
+                                     },
+                                     shape = RoundedCornerShape(24.dp),
+                                     colors = ButtonDefaults.buttonColors(
+                                         containerColor = CandyPink,
+                                         contentColor = Color.White
+                                     ),
+                                     modifier = Modifier
+                                         .fillMaxWidth()
+                                         .height(54.dp)
+                                         .testTag("iniciar_sesion_grande")
+                                 ) {
+                                     Row(
+                                         verticalAlignment = Alignment.CenterVertically,
+                                         horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                     ) {
+                                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White)
+                                         Text(
+                                             text = "Iniciar Sesión",
+                                             fontSize = 15.sp,
+                                             fontWeight = FontWeight.Black
+                                         )
+                                     }
+                                 }
+                            }
+                        }
+                        "register" -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "Registro de Usuario 🚀",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CandyPurple,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                OutlinedTextField(
+                                    value = manualName,
+                                    onValueChange = { manualName = it },
+                                    label = { Text("Nombre Completo") },
+                                    modifier = Modifier.fillMaxWidth().testTag("manual_name_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                OutlinedTextField(
+                                    value = manualEmail,
+                                    onValueChange = { manualEmail = it },
+                                    label = { Text("Email") },
+                                    modifier = Modifier.fillMaxWidth().testTag("manual_email_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                OutlinedTextField(
+                                    value = manualPassword,
+                                    onValueChange = { manualPassword = it },
+                                    label = { Text("Contraseña") },
+                                    modifier = Modifier.fillMaxWidth().testTag("manual_pass_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                OutlinedTextField(
+                                    value = manualCity,
+                                    onValueChange = { manualCity = it },
+                                    label = { Text("Ciudad o Barrio de residencia") },
+                                    modifier = Modifier.fillMaxWidth().testTag("manual_city_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                Column {
+                                    Text(
+                                        text = "Escoge tu Avatar de Jugador:",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = CandyTextDark,
+                                        modifier = Modifier.padding(bottom = 6.dp)
+                                    )
+                                    LazyRow(
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        items(avatarsList) { av ->
+                                            val isSelected = selectedAvatar == av
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(42.dp)
+                                                    .clip(CircleShape)
+                                                    .background(
+                                                        if (isSelected) CandyPink.copy(alpha = 0.2f) else Color.White
+                                                    )
+                                                    .border(
+                                                        width = if (isSelected) 2.5.dp else 1.dp,
+                                                        color = if (isSelected) CandyPink else Color.LightGray,
+                                                        shape = CircleShape
+                                                    )
+                                                    .clickable { selectedAvatar = av },
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Text(av, fontSize = 20.sp)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
+                                CandyButton(
+                                    onClick = {
+                                        if (manualName.isBlank() || manualEmail.isBlank() || manualCity.isBlank() || manualPassword.isBlank()) {
+                                            viewModel.toastMessage = "❌ Completa todos los campos requeridos."
+                                        } else {
+                                            viewModel.registrarManualFirebase(
+                                                email = manualEmail,
+                                                password = manualPassword,
+                                                nombre = manualName,
+                                                rol = AppRole.VECINO,
+                                                avatar = selectedAvatar,
+                                                city = manualCity
+                                            )
+                                        }
+                                    },
+                                    text = "Crear Cuenta de Usuario 🚀",
+                                    color = CandyTeal,
+                                    modifier = Modifier.fillMaxWidth().testTag("manual_signup_btn")
+                                )
+                            }
+                        }
+                        "merchant" -> {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Text(
+                                    text = "Acceso Exclusivo de Comercio 🏪",
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Black,
+                                    color = CandyPink,
+                                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                                )
+
+                                Text(
+                                    text = "Inicia sesión con las credenciales de tu comercio para acceder a la terminal de canje.",
+                                    fontSize = 11.sp,
+                                    color = CandyTextMuted,
+                                    textAlign = TextAlign.Center,
+                                    lineHeight = 15.sp,
+                                    modifier = Modifier.padding(bottom = 6.dp)
+                                )
+
+                                OutlinedTextField(
+                                    value = merchantEmail,
+                                    onValueChange = { merchantEmail = it },
+                                    label = { Text("Email Comercio") },
+                                    modifier = Modifier.fillMaxWidth().testTag("merchant_email_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                OutlinedTextField(
+                                    value = merchantPassword,
+                                    onValueChange = { merchantPassword = it },
+                                    label = { Text("Contraseña") },
+                                    modifier = Modifier.fillMaxWidth().testTag("merchant_pass_field"),
+                                    shape = RoundedCornerShape(14.dp),
+                                    singleLine = true,
+                                    visualTransformation = PasswordVisualTransformation(),
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedTextColor = CandyTextDark,
+                                        unfocusedTextColor = CandyTextDark,
+                                        focusedBorderColor = CandyPink,
+                                        unfocusedBorderColor = Color.LightGray,
+                                        focusedLabelColor = CandyPink,
+                                        unfocusedLabelColor = CandyTextMuted
+                                    )
+                                )
+
+                                Spacer(modifier = Modifier.height(4.dp))
+
                                 Button(
                                     onClick = {
-                                        if (loginEmail.isBlank() || loginPassword.isBlank()) {
-                                            viewModel.toastMessage = "❌ Por favor completa tus credenciales."
+                                        if (merchantEmail.isBlank() || merchantPassword.isBlank()) {
+                                            viewModel.toastMessage = "❌ Por favor completa tus credenciales de comercio."
                                         } else {
-                                            sharedPrefs.edit()
-                                                .putString("saved_email", loginEmail)
-                                                .putString("saved_password", loginPassword)
-                                                .apply()
-                                            
                                             viewModel.loginManualFirebase(
-                                                email = loginEmail,
-                                                password = loginPassword
+                                                email = merchantEmail,
+                                                password = merchantPassword
                                             )
                                         }
                                     },
@@ -1128,7 +1405,7 @@ fun WelcomeScreen(
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .height(54.dp)
-                                        .testTag("iniciar_sesion_grande")
+                                        .testTag("comercio_sesion_btn")
                                 ) {
                                     Row(
                                         verticalAlignment = Alignment.CenterVertically,
@@ -1136,25 +1413,80 @@ fun WelcomeScreen(
                                     ) {
                                         Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White)
                                         Text(
-                                            text = "Iniciar Sesión",
+                                            text = "Acceder al Panel",
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Black
                                         )
                                     }
                                 }
+
+                                Spacer(modifier = Modifier.height(6.dp))
+
+                                Text(
+                                    text = "Volver al Acceso Vecino",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CandyPink,
+                                    modifier = Modifier
+                                        .align(Alignment.CenterHorizontally)
+                                        .clickable { currentView = "login" }
+                                        .padding(8.dp)
+                                )
                             }
                         }
-                        
-                        // ... (Los casos de "register" y "merchant" continúan de igual forma en el archivo) ...
+                    }
+                }
+            }
+
+            // Visual 2: Subtle small links at the bottom of the card!
+            item {
+                when (currentView) {
+                    "login" -> {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            Text(
+                                text = "¿No tienes cuenta? Regístrate",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Black,
+                                color = CandyPink,
+                                modifier = Modifier
+                                    .clickable { currentView = "register" }
+                                    .padding(vertical = 4.dp)
+                            )
+                            
+                            Row(
+                                modifier = Modifier
+                                    .clickable { currentView = "merchant" }
+                                    .padding(vertical = 4.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Home,
+                                    contentDescription = "Acceso Comercio",
+                                    tint = CandyPink,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Text(
+                                    text = "Soy Comercio",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = CandyPink
+                                )
+                            }
+                        }
+                    }
                     "register" -> {
                         Text(
-                            text = "¿Ya tenés cuenta? Inicia sesión aquí",
-                            fontSize = 12.sp,
+                            text = "¿Ya tienes cuenta? Inicia Sesión",
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Black,
-                            color = Color.White,
+                            color = CandyPink,
                             modifier = Modifier
                                 .clickable { currentView = "login" }
-                                .padding(vertical = 4.dp)
+                                .padding(vertical = 6.dp)
                         )
                     }
                 }
@@ -1190,10 +1522,10 @@ fun WelcomeScreen(
                         isBiometricScanning = false
                         showBiometricDialog = false
                         
-                        // Auto-login con el email guardado
-                        viewModel.loginWithGoogle(
+                        // Auto-login con el email y contraseña guardados
+                        viewModel.loginManualFirebase(
                             email = loginEmail,
-                            name = loginEmail.substringBefore("@").replaceFirstChar { it.uppercase() }
+                            password = loginPassword
                         )
                     }
 
@@ -3692,12 +4024,20 @@ fun AddMerchantDialog(
         title = { Text("Registrar Nuevo Comercio", fontWeight = FontWeight.Black, color = CandyTextDark, fontSize = 16.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre socio") })
-                OutlinedTextField(value = hash, onValueChange = { hash = it }, label = { Text("Código QR Hash") })
-                OutlinedTextField(value = lat, onValueChange = { lat = it }, label = { Text("Latitud GPS") })
-                OutlinedTextField(value = lng, onValueChange = { lng = it }, label = { Text("Longitud GPS") })
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") })
-                OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Dirección") })
+                val textFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = CandyTextDark,
+                    unfocusedTextColor = CandyTextDark,
+                    focusedBorderColor = CandyPink,
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedLabelColor = CandyPink,
+                    unfocusedLabelColor = CandyTextMuted
+                )
+                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Nombre socio") }, colors = textFieldColors)
+                OutlinedTextField(value = hash, onValueChange = { hash = it }, label = { Text("Código QR Hash") }, colors = textFieldColors)
+                OutlinedTextField(value = lat, onValueChange = { lat = it }, label = { Text("Latitud GPS") }, colors = textFieldColors)
+                OutlinedTextField(value = lng, onValueChange = { lng = it }, label = { Text("Longitud GPS") }, colors = textFieldColors)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") }, colors = textFieldColors)
+                OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("Dirección") }, colors = textFieldColors)
             }
         },
         confirmButton = {
@@ -3732,9 +4072,17 @@ fun AddCampaignDialog(
         title = { Text("Crear Campaña de Premios", fontWeight = FontWeight.Black, color = CandyTextDark, fontSize = 16.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Título de Premio (ej: Café Gratis)") })
-                OutlinedTextField(value = points, onValueChange = { points = it }, label = { Text("Estrellas requeridas") })
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") })
+                val textFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = CandyTextDark,
+                    unfocusedTextColor = CandyTextDark,
+                    focusedBorderColor = CandyTeal,
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedLabelColor = CandyTeal,
+                    unfocusedLabelColor = CandyTextMuted
+                )
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Título de Premio (ej: Café Gratis)") }, colors = textFieldColors)
+                OutlinedTextField(value = points, onValueChange = { points = it }, label = { Text("Estrellas requeridas") }, colors = textFieldColors)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") }, colors = textFieldColors)
             }
         },
         confirmButton = {
@@ -3770,9 +4118,17 @@ fun AddRouteDialog(
         title = { Text("Configurar Ruta Temática", fontWeight = FontWeight.Black, color = CandyTextDark, fontSize = 16.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Título de Ruta") })
-                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") })
-                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") })
+                val textFieldColors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = CandyTextDark,
+                    unfocusedTextColor = CandyTextDark,
+                    focusedBorderColor = CandyPurple,
+                    unfocusedBorderColor = Color.LightGray,
+                    focusedLabelColor = CandyPurple,
+                    unfocusedLabelColor = CandyTextMuted
+                )
+                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Título de Ruta") }, colors = textFieldColors)
+                OutlinedTextField(value = desc, onValueChange = { desc = it }, label = { Text("Descripción") }, colors = textFieldColors)
+                OutlinedTextField(value = category, onValueChange = { category = it }, label = { Text("Categoría") }, colors = textFieldColors)
                 
                 Text("Seleccionar Comercios Participantes:", fontWeight = FontWeight.Bold, fontSize = 11.sp, color = CandyTextDark)
                 Box(modifier = Modifier.height(110.dp)) {
