@@ -476,9 +476,11 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
                                             .background(Color.White, CircleShape),
                                         contentAlignment = Alignment.Center
                                     ) {
-                                        Text(
-                                            text = activeUser.avatar,
-                                            fontSize = 28.sp
+                                        Icon(
+                                            imageVector = Icons.Default.Person,
+                                            contentDescription = "Avatar",
+                                            tint = CandyPink,
+                                            modifier = Modifier.size(28.dp)
                                         )
                                     }
                                     Column {
@@ -494,7 +496,7 @@ fun RutinApp(viewModel: RutinViewModel = viewModel()) {
                                             fontSize = 11.sp
                                         )
                                         Text(
-                                            text = "📍 " + activeUser.city,
+                                            text = "📍 Vecino Activo",
                                             color = Color.White,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold
@@ -1307,16 +1309,14 @@ fun WelcomeScreen(
 
                                 CandyButton(
                                     onClick = {
-                                        if (manualName.isBlank() || manualEmail.isBlank() || manualCity.isBlank() || manualPassword.isBlank()) {
+                                        if (manualName.isBlank() || manualEmail.isBlank() || manualPassword.isBlank()) {
                                             viewModel.toastMessage = "❌ Completa todos los campos requeridos."
                                         } else {
                                             viewModel.registrarManualFirebase(
                                                 email = manualEmail,
                                                 password = manualPassword,
                                                 nombre = manualName,
-                                                rol = AppRole.VECINO,
-                                                avatar = selectedAvatar,
-                                                city = manualCity
+                                                rol = AppRole.VECINO
                                             )
                                         }
                                     },
@@ -4289,7 +4289,12 @@ fun VecinoPerfilScreen(user: UserEntity, viewModel: RutinViewModel) {
                             .border(2.dp, CandyPink, CircleShape),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(user.avatar, fontSize = 42.sp)
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Avatar",
+                            tint = CandyPink,
+                            modifier = Modifier.size(42.dp)
+                        )
                     }
 
                     Text(
@@ -4317,7 +4322,7 @@ fun VecinoPerfilScreen(user: UserEntity, viewModel: RutinViewModel) {
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Ciudad", fontSize = 10.sp, color = CandyTextMuted, fontWeight = FontWeight.Bold)
-                            Text(user.city, fontSize = 14.sp, fontWeight = FontWeight.Black, color = CandyPurple)
+                            Text("Lima", fontSize = 14.sp, fontWeight = FontWeight.Black, color = CandyPurple)
                         }
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text("Nivel", fontSize = 10.sp, color = CandyTextMuted, fontWeight = FontWeight.Bold)
@@ -4534,3 +4539,4 @@ fun VecinoConfigScreen(user: UserEntity, viewModel: RutinViewModel) {
         }
     }
 }
+
